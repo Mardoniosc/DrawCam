@@ -37,12 +37,21 @@ body.locked #stage{pointer-events:none}
   transform-origin:0 0;
   will-change:transform;
   --gw:1px;
+  --op:.5;
 }
 #overlay{
   display:block;max-width:none;max-height:none;
-  opacity:.5;
+  opacity:var(--op);
   -webkit-user-drag:none;pointer-events:none;
 }
+/* o canvas do contorno cobre exatamente a área da imagem; a resolução interna
+   pode ser menor (limite de textura), o CSS estica de volta */
+#art{
+  position:absolute;inset:0;width:100%;height:100%;
+  display:none;opacity:var(--op);pointer-events:none;
+}
+body.lineart #overlay{visibility:hidden}
+body.lineart #art{display:block}
 #grid{
   position:absolute;inset:0;pointer-events:none;display:none;
   outline:var(--gw) solid rgba(255,80,80,.85);
@@ -131,7 +140,11 @@ body.locked #btn-lock{background:var(--accent-on);border-color:transparent;color
 body.locked #btn-lock .i-open{display:none}
 body.locked #btn-lock .i-closed{display:block}
 body.grid [data-act=grid],
-body.flip [data-act=flip]{background:var(--accent);border-color:transparent;color:#fff}
+body.flip [data-act=flip],
+body.lineart #btn-art{background:var(--accent);border-color:transparent;color:#fff}
+
+#threshold-row{display:none}
+body.lineart #threshold-row{display:flex}
 
 #peek{
   position:fixed;z-index:6;

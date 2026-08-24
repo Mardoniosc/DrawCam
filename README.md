@@ -41,9 +41,11 @@ onde `p` é o ponto médio anterior, `k` a razão das distâncias e `dθ` a vari
 |---|---|
 | Imagem | galeria / arquivos (no desktop também aceita arrastar e colar) |
 | Foto | abre a câmera nativa para fotografar a referência |
-| Ajustar | recentraliza e enquadra a imagem |
+| **Contorno** | converte a foto em line art (ver abaixo) |
 | **Travar** | congela a transformação — ative antes de desenhar |
-| Opacidade | 5% a 100% |
+| Limiar | sensibilidade das bordas; só aparece com o contorno ligado |
+| Opacidade | 5% a 100%, vale para a foto e para o contorno |
+| Ajustar | recentraliza e enquadra a imagem |
 | Espelhar | inverte na horizontal |
 | Grade | 3×3 sobre a imagem (método da grade) |
 | Trocar câmera | traseira ↔ frontal |
@@ -94,6 +96,41 @@ Localmente o nome fica `tracar-__BUILD_ID__` mesmo, constante. Enquanto estiver 
 - **Ícones:** o manifesto usa SVG, aceito pelo Chrome. Alguns Androids antigos querem PNG 192px e 512px — se precisar, exporte o `icon.svg` e adicione ao manifesto.
 - O service worker cacheia só o app; imagens carregadas ficam em memória (`blob:`) e somem ao fechar.
 
+## Line art
+
+Grayscale → Sobel → threshold, num fragment shader WebGL. É o que transforma uma foto fantasma em contorno desenhável.
+
+```glsl
+float gx = -tl - 2.0*ml - bl + tr + 2.0*mr + br;
+float gy =  tl + 2.0*tc + tr - bl - 2.0*bc - br;
+float a  = smoothstep(u_threshold, u_threshold + u_softness, length(vec2(gx, gy)));
+gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+```
+
+**Saída com alfa, não preto-sobre-branco.** O fundo sai transparente e só os traços são opacos, então a câmera aparece entre as linhas. Fundo branco cobriria o papel e derrotaria o propósito.
+
+**Custo zero por frame.** O shader roda uma vez quando a imagem ou o limiar mudam, escrevendo num `<canvas>` dentro do mesmo `#obj`. Depois disso é bitmap estático sob o mesmo `transform` — pan e zoom continuam sendo só composição na GPU.
+
+**`smoothstep` em vez de corte duro** dá a borda anti-serrilhada do traço.
+
+**O Sobel já traz o [1 2 1] embutido**, que é uma suavização — por isso não precisa de blur antes, e o ruído da foto não vira chuvisco.
+
+**Imagem maior que `MAX_TEXTURE_SIZE`** (limitado a 4096) é reduzida num canvas 2D antes do upload, senão o `texImage2D` falha. O CSS estica o canvas de volta ao tamanho natural, então o alinhamento com a imagem original não muda.
+
+**Contexto WebGL perdido** — comum no celular ao trocar de app — é reconstruído no evento `webglcontextrestored`.
+
+### Verificação
+
+Testado com uma imagem sintética contendo uma borda dura e uma rampa de inclinação conhecida (0,05/px, que pela fórmula do Sobel dá `g = 8s = 0,4`):
+
+| | limiar mínimo (0,05) | limiar máximo (1,25) |
+|---|---|---|
+| borda dura (`g ≈ 4`) | alfa 255 | alfa 255 |
+| rampa suave (`g ≈ 0,4`) | alfa 255 | alfa 0 |
+| áreas planas | alfa 0 | alfa 0 |
+
+Áreas de cor chapada não geram traço nenhum, e o limiar de fato separa borda forte de borda fraca. Imagem de 5000×2000 reduz para 4096×1638 mantendo proporção e continuando a detectar a borda.
+
 ## Próximo passo natural
 
-O filtro de **line art** (grayscale → Sobel/threshold, ou o efeito "color dodge") — é o que transforma uma foto transparente em contorno desenhável. Cabe num shader WebGL sobre a imagem, sem tocar no resto da arquitetura.
+Espessura do traço (dilatação num segundo passe) e inversão para papel escuro.
