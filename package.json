@@ -1,0 +1,14 @@
+{
+  "name": "tracar",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sobreponha uma imagem à câmera e copie os traços no papel.",
+  "scripts": {
+    "dev": "vite --host",
+    "preview": "vite preview --host"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.0.0",
+    "vite": "^6.0.0"
+  }
+}
