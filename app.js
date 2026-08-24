@@ -299,5 +299,14 @@ startCamera();
 keepAwake();
 
 if ('serviceWorker' in navigator) {
-  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      // procura versão nova sempre que o app volta ao primeiro plano;
+      // o sw novo assume sozinho (skipWaiting + clients.claim), sem recarregar a página
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+    } catch { /* sem service worker disponível */ }
+  });
 }

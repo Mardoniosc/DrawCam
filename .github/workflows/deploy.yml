@@ -1,0 +1,65 @@
+name: Deploy no GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Um deploy por vez; se chegar push novo, cancela o anterior.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Montar o site
+        run: |
+          mkdir -p _site
+          # Publica exatamente o que está commitado neste commit.
+          # Nada de untracked ou ignorado vaza para o deploy, e não há lista de
+          # exclusões para envelhecer: arquivo novo no repo entra sozinho.
+          git archive HEAD | tar -x -C _site
+          # sobra só o que é de desenvolvimento
+          rm -rf _site/.github _site/package.json _site/package-lock.json \
+                 _site/vite.config.js _site/README.md _site/.gitignore
+          ls -la _site
+
+      - name: Carimbar a versão do cache no service worker
+        run: |
+          BUILD_ID="${GITHUB_SHA::7}"
+          sed -i "s/__BUILD_ID__/${BUILD_ID}/g" _site/sw.js
+
+          # Se o placeholder sumiu do fonte, o cache congela sem ninguém perceber.
+          # Melhor quebrar o deploy aqui do que servir versão velha para sempre.
+          if grep -q '__BUILD_ID__' _site/sw.js; then
+            echo "::error file=sw.js::placeholder __BUILD_ID__ nao foi substituido"
+            exit 1
+          fi
+          if ! grep -q "tracar-${BUILD_ID}" _site/sw.js; then
+            echo "::error file=sw.js::o placeholder __BUILD_ID__ nao existe mais no sw.js - restaure-o"
+            exit 1
+          fi
+
+          echo "Versao do cache: $(grep -m1 'const CACHE' _site/sw.js)"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

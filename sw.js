@@ -1,4 +1,7 @@
-const CACHE = 'tracar-v1';
+// __BUILD_ID__ é substituído pelo hash do commit no workflow de deploy.
+// Trocar o nome do cache é o que faz o navegador buscar a versão nova — não mexa
+// no placeholder, o deploy falha de propósito se ele sumir.
+const CACHE = 'tracar-__BUILD_ID__';
 const ASSETS = [
   './',
   './index.html',

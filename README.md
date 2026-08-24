@@ -65,6 +65,28 @@ Abre em `https://localhost:5173` e também no IP da sua rede local. **O HTTPS n�
 
 Sem Node instalado, qualquer host estático serve — é só subir a pasta inteira. Netlify Drop, GitHub Pages, Cloudflare Pages: todos já entregam HTTPS, o que resolve o problema de vez e ainda permite instalar como app.
 
+## Deploy
+
+Automático: todo push em `master` dispara `.github/workflows/deploy.yml`, que publica em https://mardoniosc.github.io/DrawCam/. Em *Settings → Pages*, a origem precisa estar em **GitHub Actions** (não em "Deploy from a branch").
+
+O workflow monta o site com `git archive HEAD` — publica exatamente o que está commitado, sem lista de exclusões para envelhecer.
+
+### Por que o cache é carimbado no deploy
+
+O service worker é cache-first: na segunda visita ele serve tudo do cache e ignora a rede. É o que faz o app abrir offline e instantâneo — e também o que faria você dar push numa correção e não ver mudança nenhuma no celular.
+
+O navegador só busca arquivos novos quando o **nome do cache** muda. Por isso o `sw.js` guarda um placeholder:
+
+```javascript
+const CACHE = 'tracar-__BUILD_ID__';
+```
+
+e o workflow troca `__BUILD_ID__` pelo hash curto do commit **na cópia publicada**, nunca no arquivo do repositório. Cada commit vira um cache novo; o `activate` apaga os antigos, e `skipWaiting` + `clients.claim` fazem a versão nova assumir sem recarregar a página.
+
+O passo de carimbo falha de propósito se o placeholder não estiver mais lá. Sem essa guarda, alguém editando o `sw.js` poderia congelar o cache de todo mundo em silêncio — o pior tipo de bug, porque só aparece nos dispositivos dos outros.
+
+Localmente o nome fica `tracar-__BUILD_ID__` mesmo, constante. Enquanto estiver iterando, marque *DevTools → Application → Update on reload*.
+
 ## Limitações conhecidas
 
 - **iOS:** só Safari expõe a câmera de forma confiável; navegadores dentro de outros apps (Instagram, WhatsApp) costumam bloquear. O `playsinline` no `<video>` é obrigatório — sem ele o iOS abre o player em tela cheia.
